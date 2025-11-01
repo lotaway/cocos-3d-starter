@@ -1,0 +1,14 @@
+{
+  "name": "cocos-3d-starter",
+  "uuid": "43193c5b-f9e5-41a6-ba61-853144f4b7c7",
+  "creator": {
+    "version": "3.8.7",
+    "registry": {
+      "remote": {}
+    },
+    "dependencies": {
+      "plugin-import-2x": "1.1.10",
+      "localization-editor": "1.0.4"
+    }
+  }
+}
