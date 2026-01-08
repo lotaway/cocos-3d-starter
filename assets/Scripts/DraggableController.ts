@@ -1,15 +1,8 @@
 import { _decorator, Camera, Component, EventMouse, input, Input, Node, Vec3, director } from 'cc'
-import Logger from '../utils/Logger'
 const { ccclass, property } = _decorator
 
 @ccclass('DraggableController')
 export class DraggableController extends Component {
-
-    protected _isDragging: boolean = false
-
-    protected _dragOffset: Vec3 = new Vec3()
-
-    protected _tempPos: Vec3 = new Vec3()
 
     @property({ type: Camera, tooltip: 'Main camera for screen-to-world conversion' })
     public Camera: Camera | null = null
@@ -20,11 +13,25 @@ export class DraggableController extends Component {
     @property({ tooltip: 'Depth to maintain during drag (0 = use node depth)' })
     public Depth: number = 0
 
-    protected _worldPos: Vec3 = new Vec3()
+    @property({ tooltip: 'Whether to require mouse over node to start dragging' })
+    public RequireHitTest: boolean = false
 
-    protected _lastMouseX: number = 0
+    @property({ tooltip: 'Hit test radius when RequireHitTest is true' })
+    public HitRadius: number = 1.0
 
-    protected _lastMouseY: number = 0
+    // Drag state
+    protected _isDragging: boolean = false
+    protected _hasMousePos: boolean = false
+
+    // Store offset: node position - mouse position at drag start
+    protected _dragOffset: Vec3 = new Vec3()
+
+    // Current mouse position (updated in onMouseMove)
+    protected _currentMousePos: Vec3 = new Vec3()
+
+    // Reusable objects
+    protected _tempVec: Vec3 = new Vec3()
+    protected _tempVec2: Vec3 = new Vec3()
 
     start() {
         this.findCamera()
@@ -39,12 +46,25 @@ export class DraggableController extends Component {
         input.off(Input.EventType.MOUSE_UP, this.onMouseUp, this)
     }
 
+    update(deltaTime: number) {
+        if (!this._isDragging || !this._hasMousePos) {
+            return
+        }
+
+        // Directly set position: node = mouse + offset
+        // This ensures 1:1 movement without any accumulation error
+        this._tempVec.x = this._currentMousePos.x + this._dragOffset.x
+        this._tempVec.y = this._currentMousePos.y + this._dragOffset.y
+        this._tempVec.z = this._currentMousePos.z + this._dragOffset.z
+
+        this.node.setPosition(this._tempVec)
+    }
+
     protected findCamera(): void {
         if (this.Camera) {
             return
         }
 
-        // Find camera from scene by traversing
         const scene = director.getScene()
         if (scene) {
             const findCamera = (node: Node): Camera | null => {
@@ -64,43 +84,37 @@ export class DraggableController extends Component {
         }
     }
 
-    @Logger.Mark()
     onMouseDown(event: EventMouse) {
         if (event.getButton() !== 0) {
             return
         }
 
+        // Check if mouse is over this node if required
+        if (this.RequireHitTest && !this.isMouseOverNode(event)) {
+            return
+        }
+
         this._isDragging = true
-        this._lastMouseX = event.getLocationX()
-        this._lastMouseY = event.getLocationY()
+        this._hasMousePos = false
 
-        // Get initial world position at mouse
-        this.getWorldPositionAtMouse(event, this._worldPos)
-        this.node.getPosition(this._tempPos)
+        // Get current mouse world position
+        this.getMouseWorldPos(event, this._currentMousePos)
 
-        // Calculate offset
-        this._dragOffset.x = this._tempPos.x - this._worldPos.x
-        this._dragOffset.y = this._tempPos.y - this._worldPos.y
-        this._dragOffset.z = this._tempPos.z - this._worldPos.z
+        // Calculate offset: node position - mouse position
+        this.node.getPosition(this._tempVec)
+        this._dragOffset.x = this._tempVec.x - this._currentMousePos.x
+        this._dragOffset.y = this._tempVec.y - this._currentMousePos.y
+        this._dragOffset.z = this._tempVec.z - this._currentMousePos.z
     }
 
-    @Logger.Mark()
     onMouseMove(event: EventMouse) {
         if (!this._isDragging) {
             return
         }
 
-        this._lastMouseX = event.getLocationX()
-        this._lastMouseY = event.getLocationY()
-
-        this.getWorldPositionAtMouse(event, this._worldPos)
-
-        // Apply offset and update position
-        this._tempPos.x = this._worldPos.x + this._dragOffset.x
-        this._tempPos.y = this._worldPos.y + this._dragOffset.y
-        this._tempPos.z = this._worldPos.z + this._dragOffset.z
-
-        this.node.setPosition(this._tempPos)
+        // Store current mouse position for update() to use
+        this.getMouseWorldPos(event, this._currentMousePos)
+        this._hasMousePos = true
     }
 
     onMouseUp(event: EventMouse) {
@@ -109,32 +123,47 @@ export class DraggableController extends Component {
         }
 
         this._isDragging = false
+        this._hasMousePos = false
     }
 
-    protected getWorldPositionAtMouse(event: EventMouse, out: Vec3): void {
+    protected isMouseOverNode(event: EventMouse): boolean {
         if (!this.Camera) {
-            // Fallback: use node's current position
+            return false
+        }
+
+        // Get mouse world position at node depth
+        const depth = this.node.worldPosition.z
+        this.getMouseWorldPosAtDepth(event, depth, this._tempVec)
+
+        // Get node world position
+        this.node.getWorldPosition(this._tempVec2)
+
+        // Calculate distance between mouse world pos and node pos
+        const distance = Vec3.distance(this._tempVec, this._tempVec2)
+
+        return distance < this.HitRadius
+    }
+
+    protected getMouseWorldPos(event: EventMouse, out: Vec3): void {
+        let depth = this.Depth
+        if (depth === 0) {
+            depth = this.node.worldPosition.z
+        }
+        this.getMouseWorldPosAtDepth(event, depth, out)
+    }
+
+    protected getMouseWorldPosAtDepth(event: EventMouse, depth: number, out: Vec3): void {
+        if (!this.Camera) {
             this.node.getPosition(out)
-            if (this.Depth !== 0) {
-                out.z = this.Depth
-            }
+            out.z = depth
             return
         }
 
-        // Get mouse position
         const x = event.getLocationX()
         const y = event.getLocationY()
 
-        // Determine depth for screenToWorld
-        let depth = this.Depth
-        if (depth === 0) {
-            // Use node's world position z as depth
-            depth = this.node.worldPosition.z
-        }
-
-        // Convert screen position to world position with correct depth
-        const pos = new Vec3(x, y, depth)
-        this.Camera.screenToWorld(pos, out)
+        const screenPos = new Vec3(x, y, depth)
+        this.Camera.screenToWorld(screenPos, out)
     }
 }
 

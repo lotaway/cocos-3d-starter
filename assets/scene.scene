@@ -277,8 +277,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
+      "x": 2,
+      "y": -0.5,
       "z": 0
     },
     "_lrot": {
@@ -322,8 +322,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 2,
-      "y": -0.508,
+      "x": 0,
+      "y": 0,
       "z": 0
     },
     "_lrot": {
@@ -414,10 +414,13 @@
     },
     "_enabled": true,
     "__prefab": null,
+    "Camera": null,
     "DragPlane": {
       "__id__": 7
     },
-    "ConvertToWorld": true,
+    "Depth": 0,
+    "RequireHitTest": false,
+    "HitRadius": 1,
     "_id": "71THTiZd9LnbrPuVfATlCD"
   },
   {
