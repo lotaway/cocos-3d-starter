@@ -1,6 +1,6 @@
-import { _decorator, Animation, Component, EventMouse, Input, input, Node, Vec3 } from 'cc';
-import { BodyEnum } from '../enums/BodyEnum';
-const { ccclass, property } = _decorator;
+import { _decorator, Animation, Component, EventMouse, Input, input, Node, Vec3 } from 'cc'
+import { BodyEnum } from '../enums/BodyEnum'
+const { ccclass, property } = _decorator
 
 @ccclass('PlayerController')
 export class PlayerController extends Component {
@@ -53,10 +53,10 @@ export class PlayerController extends Component {
         switch (event.getButton()) {
             case 0:
                 this.jumpByStep(1)
-                break;
+                break
             case 2:
                 this.jumpByStep(2)
-                break;
+                break
         }
     }
 
@@ -91,6 +91,6 @@ export class PlayerController extends Component {
             this.BodyAnimation.stop()
         }
     }
-    
+
 }
 
